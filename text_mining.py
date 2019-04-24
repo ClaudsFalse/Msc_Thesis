@@ -16,10 +16,10 @@ def process_or_store(tweet):
 
 #-------------------------------------------------------------------------------------
 
-consumer_key = 'gzu5YvfhuFUWFHqDU8E5VQjKW'
-consumer_secret = 'UvN5QcPX5808t7IIpefQWwdMo6ubOiXCIWDRGD9yZz6MD32jq5'
-access_token = '938517631828623368-AjQq5UQ1gxbq7EVRTVCZo7iXKHdFEl4'
-access_secret = '2JiUdWfRaFEwwbaiHAlgeCmB683ulVHVlfx4Lx8FTqExl'
+consumer_key = 'insert API KEY'
+consumer_secret = ''
+access_token = ''
+access_secret = ''
 
 auth = OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_secret)
