@@ -10,10 +10,10 @@ import twitter
 def define_parameters():
 	search_terms = ["\" #myschizophreniadiagnosis\"", "\" I am schizophrenic\"", "\" #schizophrenic\"", "\" #myschizophrenia\"", "\" I've been diagnosed with schizophrenia\"", "\" I was diagnosed with schizophrenia\"", "\"I got schizophrenia\"", " \" my psychosis\"", "\"#ihaveschizophrenia\"", "\" I got diagnosed with schizoaffective disorder\"", "\" I got diagnosed as schizophrenic\"", "\" I got diagnosed with schizophrenia\"", "\"my schizophrenia\"", "\"I am schizophrenic\"", "\"I have been diagnosed with schizophrenia\""]
 
-	consumer_key = ""
-	consumer_secret = ""
-	access_token = ""
-	access_token_secret = ""
+	consumer_key = "gzu5YvfhuFUWFHqDU8E5VQjKW"
+	consumer_secret = "UvN5QcPX5808t7IIpefQWwdMo6ubOiXCIWDRGD9yZz6MD32jq5"
+	access_token = "938517631828623368-AjQq5UQ1gxbq7EVRTVCZo7iXKHdFEl4"
+	access_token_secret = "2JiUdWfRaFEwwbaiHAlgeCmB683ulVHVlfx4Lx8FTqExl"
 
 	return search_terms, consumer_key, consumer_secret, access_token, access_token_secret 
 
@@ -211,19 +211,27 @@ def anonymise_user(tweet_username_list):
 
 
 
-def anonymise_dataset(count, filename):
+def anonymise_dataset(data_frame):
 
-	data_frame = pd.read_csv("filename")
 
-	for user_name in data_frame[1]:
-		for number in range(len(count)):
-			data_frame[1].replace(user_name, number)
+	data_frame['Username'] = 'user' + pd.Series(pd.factorize(data_frame['Username'])[0] + 1).astype(str)
+	print(data_frame.head(5))
+
+
+def delete_duplicate_tweets(filename):
+
+	data_frame = pd.read_csv(filename)
+	data_frame.columns = ['TweetID', 'Username', 'Text']
+
+	df = data_frame.sort_values(by='Username').drop_duplicates('Text')
+
+	return df 
 
 
 
 if __name__ == '__main__':
 
-#pass in the username of the account you want to download
+
 
 	search_terms, consumer_key, consumer_secret, access_token, access_token_secret = define_parameters()
 	#get_all_tweets(search_terms, consumer_key, consumer_secret, access_token, access_token_secret )
@@ -232,11 +240,12 @@ if __name__ == '__main__':
 	name_set = set(tweet_username_list)
 	username_list = list(name_set)
 
-	missing_usernames = complete_tweets('all_tweets.csv', username_list)
+	#missing_usernames = complete_tweets('all_tweets.csv', username_list)
 
 	
-	get_user_tweets(missing_usernames, consumer_key, consumer_secret, access_token, access_token_secret)
+	#get_user_tweets(missing_usernames, consumer_key, consumer_secret, access_token, access_token_secret)
 
 
 	
-	
+	data_frame = delete_duplicate_tweets("all_tweets.csv")
+	data_frame_anon = anonymise_dataset(data_frame)
