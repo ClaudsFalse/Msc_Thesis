@@ -4,16 +4,19 @@ import pandas as pd
 import csv
 import tweepy as tw
 import twitter
+from collections import Counter
+from itertools import chain
+
 
 
 
 def define_parameters():
 	search_terms = ["\" #myschizophreniadiagnosis\"", "\" I am schizophrenic\"", "\" #schizophrenic\"", "\" #myschizophrenia\"", "\" I've been diagnosed with schizophrenia\"", "\" I was diagnosed with schizophrenia\"", "\"I got schizophrenia\"", " \" my psychosis\"", "\"#ihaveschizophrenia\"", "\" I got diagnosed with schizoaffective disorder\"", "\" I got diagnosed as schizophrenic\"", "\" I got diagnosed with schizophrenia\"", "\"my schizophrenia\"", "\"I am schizophrenic\"", "\"I have been diagnosed with schizophrenia\""]
 
-	consumer_key = ""
-	consumer_secret = ""
-	access_token = ""
-	access_token_secret = ""
+	consumer_key = "gzu5YvfhuFUWFHqDU8E5VQjKW"
+	consumer_secret = "UvN5QcPX5808t7IIpefQWwdMo6ubOiXCIWDRGD9yZz6MD32jq5"
+	access_token = "938517631828623368-AjQq5UQ1gxbq7EVRTVCZo7iXKHdFEl4"
+	access_token_secret = "2JiUdWfRaFEwwbaiHAlgeCmB683ulVHVlfx4Lx8FTqExl"
 
 	return search_terms, consumer_key, consumer_secret, access_token, access_token_secret 
 
@@ -201,21 +204,27 @@ def complete_tweets(filename, username_list):
 
 
 
-def anonymise_user(tweet_username_list):
-
-	count = len(tweet_username_list)
-
-	for username in tweet_username_list:
-		for code in range(count):
-			username.replace(username, code)
-
-
-
 def anonymise_dataset(data_frame):
 
-
 	data_frame['Username'] = 'user' + pd.Series(pd.factorize(data_frame['Username'])[0] + 1).astype(str)
-	print(data_frame.head(5))
+	
+	data_frame.to_csv("anonymised.csv", index=False)
+
+	
+def make_anonymous(data_frame, username_list):
+
+	total_users = len(username_list)
+	print(total_users)
+
+	user_codes = {}
+
+	for name in username_list:
+		print(name)
+		for number in range(1, total_users):
+			user_codes = {name, number}
+
+	print (Counter(chain.from_iterable(i.itervalues() for i in user_codes.itervalues())))
+
 
 
 def delete_duplicate_tweets(filename):
@@ -249,3 +258,7 @@ if __name__ == '__main__':
 	
 	data_frame = delete_duplicate_tweets("all_tweets.csv")
 	data_frame_anon = anonymise_dataset(data_frame)
+
+
+
+	
