@@ -1,23 +1,47 @@
 import pandas as pd 
-pd.options.display.max_columns = 200
-pd.options.mode.chained_assignment = None
+from  nltk.tokenize import word_tokenize, sent_tokenize, RegexpTokenizer
+from nltk.corpus import stopwords, words
 
-from  nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.corpus import stopwords
-stop = set(stopwords.words('english'))
-from string import punctuation
+from string import punctuation, digits
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-
+import langid
 from collections import Counter 
 import re 
 import numpy as np 
-
 from tqdm import tqdm_notebook
 
-tqdm_notebook().pandas()
 
-def stopwords_remover():
+
+def get_documents(filename):
+
+	data_frame = pd.read_csv(filename)
+#	print(data_frame.shape)
+
+#	values_expected = data_frame['Text']
+#	tot_values_expected = len(values_expected)
+
+#	values = []
+
+#	for tweet in data_frame['Text']:
+		#print(tweet)
+#		values.append(tweet)
+
+	data_frame_new = data_frame.iloc[:, 1:3]
+
+
+	documents = data_frame_new.groupby('Username')['Text'].apply(list).to_dict()
+	#dictionary = data_frame_new.set_index('Username').T.to_dict()
+
+	return documents
+
+
+
+#def filter_lang(lang, documents):
+ #   doclang = [  langid.classify(doc) for doc in documents.values() ]
+  #  return [documents[k] for k in range(len(documents.values())) if doclang[k][0] == lang]
+
+def preprocessing_data(documents):
 	"""
 	Function that lowercase the text and clean it
 	Break the sentences into tokens
@@ -25,13 +49,43 @@ def stopwords_remover():
 	Standardise the text : can't -> cannot, I'm -> I am
 	"""
 
-	stop_words = []
+	# Remove stop words
+	words = set(words.words())
+
+	tokenizer = RegexpTokenizer(r'\w+')
+	stop_words = stopwords.words('english')
+	stoplist_extra=['amp','get','got','hey','hmm','hoo','hop','iep','let','ooo','par',
+            'pdt','pln','pst','wha','yep','yer','aest','didn','nzdt','via',
+            'one','com','new','like','great','make','top','awesome','best',
+            'good','wow','yes','say','yay','would','thanks','thank','going',
+            'new','use','should','could','best','really','see','want','nice',
+            'while','know']
+
+	#processed_tweets = [re.sub(r"(?:\@|http?\://)\S+", "", doc)
+     #           for doc in documents.values() ]
+
+	processed_tweets = [ tokenizer.tokenize(str(doc).lower()) for doc in documents.values() ]
+
+	unigrams = [  w for doc in documents.values() for w in doc if len(w)==1]
+	bigrams  = [ w for doc in documents.values() for w in doc if len(w)==2]
+
+	stoplist  = set(stop_words + stoplist_extra + unigrams + bigrams)
+
+	processed_tweets = [[token for token in doc if token not in stoplist]
+                for doc in documents.values()]
+
+        # rm numbers only words
+	processed_tweets = [ [token for token in doc if len(token.strip(digits)) == len(token)]
+                for doc in documents.values() ]
+
+  	#return documents
+
+def remove_nonAscii(text):
+	pass
 
 
-def removeNonAscii(text):
-	return "".join(i for i in s if ord(i)<128)
+def extend_abbreviations(text):
 
-def clean_text(text):
     text = text.lower()
     text = re.sub(r"what's", "what is ", text)
     text = text.replace('(ap)', '')
@@ -52,7 +106,12 @@ def clean_text(text):
     text = removeNonAscii(text)
     text = text.strip()
     return text
+    
 
+def filter_nonenglish(text):
+	pass 
+
+'''
 
 vectorizer = TfidfVectorizer(min_df=5, analyzer='word', ngram_range=(1, 2), stop_words='english')
 vz = vectorizer.fit_transform(list(data['tokens'].map(lambda tokens: ' '.join(tokens))))
@@ -104,3 +163,18 @@ plot_word_cloud(tfidf.sort_values(by=['tfidf'], ascending=False).head(40))
 
 # In order to visualise this crazy multidimensional shit, we reduce the 
 # dimension to 50 by singular value decomposition
+
+'''
+if __name__ == '__main__':
+
+	documents = get_documents('anonymised.csv')
+
+	print("Corpus of %s documents" % len(documents.values()))
+
+	#  Filter non english documents
+
+#	documents = filter_lang('en', documents)
+
+#	print("We have " + str(len(documents)) + " documents in english ")
+
+	preprocessing_data(documents)
