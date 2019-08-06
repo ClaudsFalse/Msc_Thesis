@@ -1,47 +1,49 @@
 import pandas as pd 
 from  nltk.tokenize import word_tokenize, sent_tokenize, RegexpTokenizer
 from nltk.corpus import stopwords, words
-
+from gensim import corpora, models, similarities
 from string import punctuation, digits
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+import enchant 
 import langid
-from collections import Counter 
+from collections import Counter, defaultdict
 import re 
 import numpy as np 
 from tqdm import tqdm_notebook
+import random 
+import csv 
 
 
+
+# ---------------------------------------HELPER FUNCTIONS ----------------------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 def get_documents(filename):
 
 	data_frame = pd.read_csv(filename)
-#	print(data_frame.shape)
-
-#	values_expected = data_frame['Text']
-#	tot_values_expected = len(values_expected)
-
-#	values = []
-
-#	for tweet in data_frame['Text']:
-		#print(tweet)
-#		values.append(tweet)
-
 	data_frame_new = data_frame.iloc[:, 1:3]
+
+	usernames = data_frame_new.iloc[:,0]
+
+	usernames_list = set(usernames.values.tolist())
 
 
 	documents = data_frame_new.groupby('Username')['Text'].apply(list).to_dict()
-	#dictionary = data_frame_new.set_index('Username').T.to_dict()
+	
+	return documents, usernames_list
 
-	return documents
 
 
+
+def filter_noneng(lang, documents):
+    doclang = [  langid.classify(str(word)) for word in documents ]
+    return [documents[k] for k in range(len(documents)) if doclang[k][0] == lang]
 
 #def filter_lang(lang, documents):
  #   doclang = [  langid.classify(doc) for doc in documents.values() ]
   #  return [documents[k] for k in range(len(documents.values())) if doclang[k][0] == lang]
 
-def preprocessing_data(documents):
+def preprocessing_data(documents, usernames_list):
 	"""
 	Function that lowercase the text and clean it
 	Break the sentences into tokens
@@ -49,75 +51,124 @@ def preprocessing_data(documents):
 	Standardise the text : can't -> cannot, I'm -> I am
 	"""
 
-	# Remove stop words
-	words = set(words.words())
-
 	tokenizer = RegexpTokenizer(r'\w+')
 	stop_words = stopwords.words('english')
+
 	stoplist_extra=['amp','get','got','hey','hmm','hoo','hop','iep','let','ooo','par',
             'pdt','pln','pst','wha','yep','yer','aest','didn','nzdt','via',
-            'one','com','new','like','great','make','top','awesome','best',
-            'good','wow','yes','say','yay','would','thanks','thank','going',
+            'one','com','new','like','great','make','top','good','wow','yes','say','yay','would','thanks','thank','going',
             'new','use','should','could','best','really','see','want','nice',
-            'while','know']
+            'while','know', 'ngl', 'brb', 'acc', 'smh', 'fwiw', 'ftl', 'lmao', 'lol', 'omg']
 
-	#processed_tweets = [re.sub(r"(?:\@|http?\://)\S+", "", doc)
-     #           for doc in documents.values() ]
+    	# identify bigrams and unigrams to strip from tweets 
 
-	processed_tweets = [ tokenizer.tokenize(str(doc).lower()) for doc in documents.values() ]
+	counter = 0 
+	
+	with open('preprocessed.csv', 'a') as csvFile:
+		csvWriter = csv.writer(csvFile)
 
-	unigrams = [  w for doc in documents.values() for w in doc if len(w)==1]
-	bigrams  = [ w for doc in documents.values() for w in doc if len(w)==2]
+		for username in documents.keys():
 
-	stoplist  = set(stop_words + stoplist_extra + unigrams + bigrams)
+			#print("this is a key", username)
+			counter += 1
 
-	processed_tweets = [[token for token in doc if token not in stoplist]
-                for doc in documents.values()]
+			
+			print('Number of iterations: ' + str(counter) + "  out of:  " + str(len(usernames_list)))
+		
+			documents[username] = tokenizer.tokenize(str(documents))
+			print("Document has been tokenized")
 
-        # rm numbers only words
-	processed_tweets = [ [token for token in doc if len(token.strip(digits)) == len(token)]
-                for doc in documents.values() ]
+			documents[username] = str(documents).lower() 
+			print("Document has been lowercased")
+			print('**********************************************************************************')
+			#print("CHECK IF THIS BULLSHIT IS WORKING")
+				
+			#print(documents[username])
+		
+			print("Document is being stripped of unwanted characters.....")
+			documents[username] = [re.sub(r"em", "email ", str(documents[username]))]
+			documents[username] = [re.sub(r"jk", "joking ", str(documents[username]))]
+			documents[username] = [re.sub(r"til", "learned ", str(documents[username]))]
+			documents[username] = [re.sub(r'@[^\s]+','', str(documents[username]))]  # remove usernmaes from tweets (mentions)
+			documents[username] = [re.sub(r"fb", "facebook ", str(documents[username]))]   # look for twitter most used acronyms
 
-  	#return documents
+			print("Document has been stripped")
+			# filter out non-english words
+			documents[username] = filter_noneng('en', documents[username])
 
-def remove_nonAscii(text):
-	pass
+			print("non-english words have been filtered")
+			documents[username] = [re.sub(r"(?:\@|http?\://)\S+", "", str(documents[username]))]
 
 
-def extend_abbreviations(text):
+			print("creating unigrams and stopwords list.....")
+			unigrams = [ word for doc in documents[username] for word in doc if len(word)==1]
+			bigrams  = [ word for word in documents[username] for word in doc if len(word)==2]
 
-    text = text.lower()
-    text = re.sub(r"what's", "what is ", text)
-    text = text.replace('(ap)', '')
-    text = re.sub(r"\'s", " is ", text)
-    text = re.sub(r"\'ve", " have ", text)
-    text = re.sub(r"can't", "cannot ", text)
-    text = re.sub(r"n't", " not ", text)
-    text = re.sub(r"i'm", "i am ", text)
-    text = re.sub(r"\'re", " are ", text)
-    text = re.sub(r"\'d", " would ", text)
-    text = re.sub(r"\'ll", " will ", text)
-    text = re.sub(r'\W+', ' ', text)
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r"\\", "", text)
-    text = re.sub(r"\'", "", text)    
-    text = re.sub(r"\"", "", text)
-    text = re.sub('[^a-zA-Z ?!]+', '', text)
-    text = removeNonAscii(text)
-    text = text.strip()
-    return text
-    
 
-def filter_nonenglish(text):
-	pass 
+			print("bigrams--------------", bigrams)
+			stoplist  = set(stop_words + stoplist_extra + unigrams + bigrams)
+
+			print("stoplist--------", stoplist)
+
+			# remove stopwords 
+
+			documents[username] = [[token for token in doc if token not in stoplist] for doc in documents[username]]
+			print("Stopwords have been removed ")
+			# remove numbers only words
+
+			documents[username] = [[token for token in doc if len(token.strip(digits)) == len(token)] for doc in documents[username]]
+
+
+
+			# Remove words that only occur once
+
+			token_frequency = defaultdict(int)
+
+			# count all token
+			for doc in documents[username]:
+				for token in doc:
+					token_frequency[token] += 1
+					# keep words that occur more than once
+
+			documents[username] = [[token for token in doc if token_frequency[token] > 1] for doc in documents[username]]
+
+			print("USERNAME-----",username,"TWEETS-----", documents[username])
+			csvWriter.writerow([username, documents[username]])
+
+	csvFile.close()
+
+	return documents
+
+
+
+def tokens_dictionary(documents):
+
+	# Sort words in documents
+
+	for key in documents.keys():
+		for doc in documents[key]:
+			doc.sort()
+
+			# Build a dictionary where for each document each word has its own id (prerequisite of Gensim LDA modelling)
+
+		tokens_dictionary = corpora.Dictionary(documents[key])
+		tokens_dictionary.compactify()
+
+	# and save the dictionary for future use
+	tokens_dictionary.save('tokens_dictionary.dict')
+
+
+	
+
+	print("We now have a dictionary with %s unique tokens" % len(tokens_dictionary))
+
+	return tokens_dictionary
+
+
+
+
 
 '''
-
-vectorizer = TfidfVectorizer(min_df=5, analyzer='word', ngram_range=(1, 2), stop_words='english')
-vz = vectorizer.fit_transform(list(data['tokens'].map(lambda tokens: ' '.join(tokens))))
-### rows = total number of tweets 
-### columns total number of unique terms (tokens) = vocabulary across the documents 
-vz.shape
 
 
 # create a dictionary mapping the tokens to their tf-idf values 
@@ -165,9 +216,15 @@ plot_word_cloud(tfidf.sort_values(by=['tfidf'], ascending=False).head(40))
 # dimension to 50 by singular value decomposition
 
 '''
+
+
 if __name__ == '__main__':
 
-	documents = get_documents('anonymised.csv')
+
+
+	documents, usernames_list = get_documents('anonymised.csv')
+
+	
 
 	print("Corpus of %s documents" % len(documents.values()))
 
@@ -177,4 +234,19 @@ if __name__ == '__main__':
 
 #	print("We have " + str(len(documents)) + " documents in english ")
 
-	preprocessing_data(documents)
+	preprocessed_documents = preprocessing_data(documents, usernames_list)
+
+	print("TWEET PREPROCESSING COMPLETED")
+	print("---------------------------------")
+'''
+	dic_key = random.choice(list(preprocessed_documents))
+
+
+
+	print ("Random key value pair from dictonary is ", dic_key, " - ", preprocessed_documents[dic_key])
+
+	tokens_dictionary = tokens_dictionary(preprocessed_documents)
+
+	print("ID-TOKEN DICTIONARY CREATED")
+	print("END OF SCRIPT")
+	'''
