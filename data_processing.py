@@ -1,6 +1,6 @@
 import pandas as pd 
 from  nltk.tokenize import word_tokenize, sent_tokenize, RegexpTokenizer
-from nltk.corpus import stopwords, words
+from nltk.corpus import stopwords, words, wordnet 
 from gensim import corpora, models, similarities
 from string import punctuation, digits
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -12,7 +12,9 @@ import numpy as np
 from tqdm import tqdm_notebook
 import random 
 import csv 
-
+import string 
+from nltk.stem import WordNetLemmatizer 
+import nltk 
 
 
 # ---------------------------------------HELPER FUNCTIONS ----------------------------------------------------#
@@ -20,8 +22,9 @@ import csv
 
 def get_documents(filename):
 
-	data_frame = pd.read_csv(filename)
-	data_frame_new = data_frame.iloc[:, 1:3]
+	data_frame = pd.read_csv(filename, names=["TweetID","Username", "Text"])
+	data_frame_new = data_frame.iloc[:,1:3]
+	#print(data_frame_new.head(5))
 
 	usernames = data_frame_new.iloc[:,0]
 
@@ -32,12 +35,16 @@ def get_documents(filename):
 	
 	return documents, usernames_list
 
+def get_wordnet_pos(word):
+    """Map POS tag to first character lemmatize() accepts"""
+    tag = nltk.pos_tag([word])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ,
+                "N": wordnet.NOUN,
+                "V": wordnet.VERB,
+                "R": wordnet.ADV}
 
+    return tag_dict.get(tag, wordnet.NOUN)
 
-
-def filter_noneng(lang, documents):
-    doclang = [  langid.classify(str(word)) for word in documents ]
-    return [documents[k] for k in range(len(documents)) if doclang[k][0] == lang]
 
 #def filter_lang(lang, documents):
  #   doclang = [  langid.classify(doc) for doc in documents.values() ]
@@ -51,20 +58,24 @@ def preprocessing_data(documents, usernames_list):
 	Standardise the text : can't -> cannot, I'm -> I am
 	"""
 
-	tokenizer = RegexpTokenizer(r'\w+')
+	#tokenizer = RegexpTokenizer(r'\w+')
+
+	lemmas = set(wordnet.all_lemma_names())
+
 	stop_words = stopwords.words('english')
 
-	stoplist_extra=['amp','get','got','hey','hmm','hoo','hop','iep','let','ooo','par',
-            'pdt','pln','pst','wha','yep','yer','aest','didn','nzdt','via',
+	stoplist_extra=['amp','youd', 'wed' ,'id', 'get','got','hey','hmm','hoo','hop','iep','let','ooo','par',
+            'pdt','pln','pst','wha','yep','yer','aest','didn','nzdt','via', 'seven', 'eight', 'nine', 'ten',
             'one','com','new','like','great','make','top','good','wow','yes','say','yay','would','thanks','thank','going',
-            'new','use','should','could','best','really','see','want','nice',
-            'while','know', 'ngl', 'brb', 'acc', 'smh', 'fwiw', 'ftl', 'lmao', 'lol', 'omg']
+            'new','use','should','could','best','really','see','want','nice', ' shes', 'hes ', 'were', 'theyre', 'yous','two', 'three','four', 'five', 'six', 
+            'while','know', 'ngl', 'brb', 'acc', 'smh', 'fwiw', 'ftl', 'lmao', 'lol', 'omg', 'https', 'mvp', 'isnt', 'arent', 'ever',
+            'cant']
 
     	# identify bigrams and unigrams to strip from tweets 
 
 	counter = 0 
 	
-	with open('preprocessed.csv', 'a') as csvFile:
+	with open('new_one.csv', 'a') as csvFile:
 		csvWriter = csv.writer(csvFile)
 
 		for username in documents.keys():
@@ -75,64 +86,50 @@ def preprocessing_data(documents, usernames_list):
 			
 			print('Number of iterations: ' + str(counter) + "  out of:  " + str(len(usernames_list)))
 		
-			documents[username] = tokenizer.tokenize(str(documents))
-			print("Document has been tokenized")
+			documents[username] = " ".join(documents[username]).lower().split()
+			
+			
+			#documents[username] = [re.sub(r"em", "email ", str(documents[username]))]
+			#documents[username] = [re.sub(r"jk", "joking ", str(documents[username]))]
+			#documents[username] = [re.sub(r"til", "learned ", str(documents[username]))]
+			#documents[username] = [re.sub(r"fb", "facebook ", str(documents[username]))]   # look for twitter most used acronyms			
+			#documents[username] = filter_noneng('en', documents[username])
+			
 
-			documents[username] = str(documents).lower() 
-			print("Document has been lowercased")
-			print('**********************************************************************************')
-			#print("CHECK IF THIS BULLSHIT IS WORKING")
-				
-			#print(documents[username])
-		
-			print("Document is being stripped of unwanted characters.....")
-			documents[username] = [re.sub(r"em", "email ", str(documents[username]))]
-			documents[username] = [re.sub(r"jk", "joking ", str(documents[username]))]
-			documents[username] = [re.sub(r"til", "learned ", str(documents[username]))]
-			documents[username] = [re.sub(r'@[^\s]+','', str(documents[username]))]  # remove usernmaes from tweets (mentions)
-			documents[username] = [re.sub(r"fb", "facebook ", str(documents[username]))]   # look for twitter most used acronyms
+			documents[username] = [re.sub(r'@[^\s]+','', word) for word in documents[username]]
+			documents[username] = [re.sub(r'#[^\s]+','', word) for word in documents[username]]
 
-			print("Document has been stripped")
-			# filter out non-english words
-			documents[username] = filter_noneng('en', documents[username])
+			
+			# remove punctuation and replace with space 
+			#documents[username] = [re.sub(r"(?:\@|http?\://)\S+", '', word) for word in documents[username]] 
+			documents[username] = [re.sub(r'^https?:\/\/.*[\r\n]*', '', word, flags=re.MULTILINE) for word in documents[username]]
+			documents[username] = [re.sub(r"[\"'-,.;@#?!&$:'/]+\ *", " ", word) for word in documents[username]]
 
-			print("non-english words have been filtered")
-			documents[username] = [re.sub(r"(?:\@|http?\://)\S+", "", str(documents[username]))]
+			#documents[username] = [''.join(c for c in s if c not in string.punctuation) for s in documents[username]]
+			#documents[username] = [s for s in documents[username] if s]
+			
+			# remove digits 
 
+			documents[username] = [re.sub(r'\w*\d\w*', '', word) for word in documents[username]]
 
 			print("creating unigrams and stopwords list.....")
-			unigrams = [ word for doc in documents[username] for word in doc if len(word)==1]
-			bigrams  = [ word for word in documents[username] for word in doc if len(word)==2]
-
-
-			print("bigrams--------------", bigrams)
-			stoplist  = set(stop_words + stoplist_extra + unigrams + bigrams)
-
-			print("stoplist--------", stoplist)
 
 			# remove stopwords 
+			documents[username] =  ' '.join(documents[username]).split()
 
-			documents[username] = [[token for token in doc if token not in stoplist] for doc in documents[username]]
+			unigrams = [ word for word in documents[username] if len(word)==1]
+			bigrams  = [ word for word in documents[username] if len(word)==2]
+			stoplist  = set(stop_words + stoplist_extra + unigrams + bigrams)
+
+			documents[username] = [word for word in documents[username] if word not in stoplist]
+
+
 			print("Stopwords have been removed ")
-			# remove numbers only words
 
-			documents[username] = [[token for token in doc if len(token.strip(digits)) == len(token)] for doc in documents[username]]
-
-
-
-			# Remove words that only occur once
-
-			token_frequency = defaultdict(int)
-
-			# count all token
-			for doc in documents[username]:
-				for token in doc:
-					token_frequency[token] += 1
-					# keep words that occur more than once
-
-			documents[username] = [[token for token in doc if token_frequency[token] > 1] for doc in documents[username]]
-
-			print("USERNAME-----",username,"TWEETS-----", documents[username])
+			documents[username] = [lemmatizer.lemmatize(word, get_wordnet_pos(word)) for word in documents[username]]
+			documents[username] = [word for word in documents[username] if word in lemmas]
+			
+			
 			csvWriter.writerow([username, documents[username]])
 
 	csvFile.close()
@@ -170,6 +167,19 @@ def tokens_dictionary(documents):
 
 '''
 
+
+			
+			# Remove words that only occur once
+
+			token_frequency = defaultdict(int)
+
+			# count all token
+			for doc in documents[username]:
+				for token in doc:
+					token_frequency[token] += 1
+					# keep words that occur more than once
+
+			documents[username] = [[token for token in doc if token_frequency[token] > 1] for doc in documents[username]]
 
 # create a dictionary mapping the tokens to their tf-idf values 
 
@@ -222,7 +232,7 @@ if __name__ == '__main__':
 
 
 
-	documents, usernames_list = get_documents('anonymised.csv')
+	documents, usernames_list = get_documents('all_tweets.csv')
 
 	
 
@@ -233,7 +243,7 @@ if __name__ == '__main__':
 #	documents = filter_lang('en', documents)
 
 #	print("We have " + str(len(documents)) + " documents in english ")
-
+	lemmatizer = WordNetLemmatizer()
 	preprocessed_documents = preprocessing_data(documents, usernames_list)
 
 	print("TWEET PREPROCESSING COMPLETED")
