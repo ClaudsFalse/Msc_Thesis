@@ -25,7 +25,7 @@ def define_parameters():
 
 def get_all_tweets(search_terms, consumer_key, consumer_secret, access_token, access_token_secret ):
 	
-	tags = ["\" #life\"", "\" #friday\"", "\" #summer\"","\" #tuesday\"" ]
+	tags = ["\" #life\"", "\" #friday\"", "\" #summer\"" ]
 	auth = tw.OAuthHandler(consumer_key, consumer_secret)
 	auth.set_access_token(access_token, access_token_secret)
 	api = tw.API(auth, wait_on_rate_limit=True)
@@ -78,7 +78,7 @@ def get_user_tweets(username_list, consumer_key, consumer_secret, access_token, 
 
 	all_usernames = len(username_list)
 
-	with open('control_tweets.csv', 'a') as csvFile:
+	with open('all_tweets.csv', 'a') as csvFile:
 		csvWriter = csv.writer(csvFile)
 
 		#make request through the search API for the most recent 200 tweets (200 is the max allowed)
@@ -89,7 +89,7 @@ def get_user_tweets(username_list, consumer_key, consumer_secret, access_token, 
 		
 		for username in username_list:
 
-			user_counter += 1
+			user_counter = user_counter + 1
 
 			for tweet in tw.Cursor(api.user_timeline, screen_name= username, tweet_mode="extended",  wait_on_rate_limit=True).items():
 
@@ -124,9 +124,15 @@ def complete_tweets(filename, username_list):
 
 
 	missing_usernames = list(set(username_list) - set(usernames_done))
-	print("missin  ", missing_usernames)
+	print("missin  ", len(missing_usernames))
+	
+
 	tot_users = len(username_list)
+	print(tot_users)
+
 	tot_done = len(usernames_done)
+	print(tot_done)
+
 	expected = tot_users - tot_done
 	outcome = len(missing_usernames)
 
@@ -171,37 +177,33 @@ if __name__ == '__main__':
 	search_terms, consumer_key, consumer_secret, access_token, access_token_secret = define_parameters()
 	get_all_tweets(search_terms, consumer_key, consumer_secret, access_token, access_token_secret )
 
+	username_list = extract('tweets.csv')
 	
-	
-	username_list = extract('control_tweets.csv')
-	
-	#more_usernames = extract('more_tweets.csv')
-	#print(len(username_list))
+	more_usernames = extract('more_tweets.csv')
+	print(len(username_list))
 
-	#usernames = username_list.union(more_usernames)
-	#print(len(usernames))
+	usernames = username_list.union(more_usernames)
+	print(len(usernames))
 
-	#users = list(usernames)
+	users = list(usernames)
 	
-	#new_names= ['RayneAdrianax', 'Da3dalusStephen', 'Lucina68332065', 'hizspookygirl', 'kawaiilovesarah', 'RealSonchild196', 'irishnationali1'
-	#, 'tompostable', 'JasonPoolej2', 'ProvokingDrama', 'smackletweets', 'RaiWaddingham', 'IndigoDaya', 'iamtiaraye', 'uniqueblogme']
+	new_names= ['RayneAdrianax', 'Da3dalusStephen', 'Lucina68332065', 'hizspookygirl', 'kawaiilovesarah', 'RealSonchild196', 'irishnationali1'
+	, 'tompostable', 'JasonPoolej2', 'ProvokingDrama', 'smackletweets', 'RaiWaddingham', 'IndigoDaya', 'iamtiaraye', 'uniqueblogme']
 	
-	#for name in new_names:
-	#	users.append(name)
+	for name in new_names:
+		users.append(name)
 
 	#username = [usernames[i] for i in range(1,198)]
 	
-	users = set(username_list)
-	missing_usernames = complete_tweets('control_tweets.csv', users)
-	print(missing_usernames)
+	missing_usernames = complete_tweets('all_tweets.csv', users)
 
-	#get_user_tweets(missing_usernames, consumer_key, consumer_secret, access_token, access_token_secret)
 	
+	get_user_tweets(missing_usernames, consumer_key, consumer_secret, access_token, access_token_secret)
+
+
 	
 	#data_frame = delete_duplicate_tweets("all_tweets.csv")
 	#data_frame_anon = anonymise_dataset(data_frame)
-
-	
 
 
 
