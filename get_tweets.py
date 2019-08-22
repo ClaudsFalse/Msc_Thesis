@@ -1,3 +1,6 @@
+# Author: Claudia Falsetti <1431314>
+# Python 3.7.3 
+
 
 import utils 
 import pandas as pd 
@@ -115,7 +118,7 @@ if __name__ == '__main__':
 	username_list = complete_tweets('all_tweets.csv', users)
 	get_user_tweets(missing_usernames, consumer_key, consumer_secret, access_token, access_token_secret)
 	
-	
+
 	
 	
 
